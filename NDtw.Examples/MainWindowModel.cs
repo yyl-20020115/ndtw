@@ -8,337 +8,335 @@ using NDtw.Examples.Infrastructure;
 using NDtw.Examples.Infrastructure.MultiSelect;
 using NDtw.Preprocessing;
 
-namespace NDtw.Examples
+namespace NDtw.Examples;
+
+public class MainWindowViewModel : ViewModelBase
 {
-    public class MainWindowViewModel : ViewModelBase
+    public MainWindowViewModel()
     {
-        public MainWindowViewModel()
+        InitializeData();
+        _selectedEntities.CollectionChanged += (sender, e) => Recalculate();
+        _selectedVariables.CollectionChanged += (sender, e) => Recalculate();
+    }
+
+    private void Recalculate()
+    {
+        if (!CanRecalculate)
+            return;
+
+        var seriesVariables = new List<SeriesVariable>();
+        foreach (var selectedVariable in SelectedVariables)
         {
-            InitializeData();
-            _selectedEntities.CollectionChanged += (sender, e) => Recalculate();
-            _selectedVariables.CollectionChanged += (sender, e) => Recalculate();
+            seriesVariables.Add(
+                new SeriesVariable(
+                    DataSeries.GetValues(_selectedEntities[0], selectedVariable.Name).ToArray(),
+                    DataSeries.GetValues(_selectedEntities[1], selectedVariable.Name).ToArray(),
+                    selectedVariable.Name,
+                    selectedVariable.Preprocessor,
+                    selectedVariable.Weight));
         }
 
-        private void Recalculate()
-        {
-            if (!CanRecalculate)
-                return;
+        var seriesVariablesArray = seriesVariables.ToArray();
 
-            var seriesVariables = new List<SeriesVariable>();
-            foreach (var selectedVariable in SelectedVariables)
-            {
-                seriesVariables.Add(
-                    new SeriesVariable(
-                        DataSeries.GetValues(_selectedEntities[0], selectedVariable.Name).ToArray(),
-                        DataSeries.GetValues(_selectedEntities[1], selectedVariable.Name).ToArray(),
-                        selectedVariable.Name,
-                        selectedVariable.Preprocessor,
-                        selectedVariable.Weight));
-            }
-
-            var seriesVariablesArray = seriesVariables.ToArray();
-
-            var dtw = new Dtw(
-                seriesVariablesArray,
-                SelectedDistanceMeasure.Value,
-                UseBoundaryConstraintStart,
-                UseBoundaryConstraintEnd,
-                UseSlopeConstraint ? SlopeConstraintDiagonal : (int?)null,
-                UseSlopeConstraint ? SlopeConstraintAside : (int?)null, 
-                UseSakoeChibaMaxShift ? SakoeChibaMaxShift : (int?)null);
-            
-            if (MeasurePerformance)
-            {
-                var swDtwPerformance = new Stopwatch();
-                swDtwPerformance.Start();
-
-                for (int i = 0; i < 250; i++)
-                {
-                    var tempDtw = new Dtw(
-                        seriesVariablesArray,
-                        SelectedDistanceMeasure.Value,
-                        UseBoundaryConstraintStart,
-                        UseBoundaryConstraintEnd,
-                        UseSlopeConstraint ? SlopeConstraintDiagonal : (int?)null,
-                        UseSlopeConstraint ? SlopeConstraintAside : (int?)null,
-                        UseSakoeChibaMaxShift ? SakoeChibaMaxShift : (int?)null);
-                    var tempDtwPath = tempDtw.GetCost();
-                }
-                swDtwPerformance.Stop();
-                OperationDuration = swDtwPerformance.Elapsed;
-            }
-
-            Dtw = dtw;
-
-            //Dtw = new Dtw(
-            //    new[] { 4.0, 4.0, 4.5, 4.5, 5.0, 5.0, 5.0, 4.5, 4.5, 4.0, 4.0, 3.5 },
-            //    new[] { 1.0, 1.5, 2.0, 2.5, 3.5, 4.0, 3.0, 2.5, 2.0, 2.0, 2.0, 1.5 },
-            //    SelectedDistanceMeasure.Value,
-            //    UseBoundaryConstraintStart,
-            //    UseBoundaryConstraintEnd,
-            //    UseSlopeConstraint ? SlopeConstraintDiagonal : (int?)null,
-            //    UseSlopeConstraint ? SlopeConstraintAside : (int?)null,
-            //    UseSakoeChibaMaxShift ? SakoeChibaMaxShift : (int?)null);
-        }
-
-        public MultivariateDataSeriesRepository DataSeries { get; set; }
-
-        private void InitializeData()
-        {
-            DataSeries = DataSeriesFactory.CreateMultivariateConsumptionByPurposeEurostat();
-
-            Entities = new ObservableCollection<string>(DataSeries.GetEntities());
-
-            var nonePreprocessor = new NonePreprocessor();
-            Variables = new ObservableCollection<Variable>(DataSeries.GetVariables().Select(x => new Variable() { Name = x, Preprocessor = nonePreprocessor, Weight = 1 }));
-            Preprocessors = new ObservableCollection<IPreprocessor>()
-                                {
-                                    nonePreprocessor,
-                                    new CentralizationPreprocessor(),
-                                    new NormalizationPreprocessor(),
-                                    new StandardizationPreprocessor()
-                                };
-
-            DistanceMeasures = new ObservableCollection<DistanceMeasure>()
-                                   {
-                                       DistanceMeasure.Manhattan, 
-                                       DistanceMeasure.Euclidean, 
-                                       DistanceMeasure.SquaredEuclidean,
-                                       DistanceMeasure.Maximum
-                                   };
-            
-            SelectedDistanceMeasure = DistanceMeasure.Euclidean;
-        }
-
-        public ObservableCollection<string> Entities { get; private set; }
-        private readonly ObservableCollection<string> _selectedEntities = new ObservableCollection<string>();
-        public ObservableCollection<string> SelectedEntities
-        {
-            get { return _selectedEntities; }
-        }
-
-        public ObservableCollection<Variable> Variables { get; private set; }
-        public ObservableCollection<IPreprocessor> Preprocessors { get; private set; }
-
-        private readonly ObservableCollection<Variable> _selectedVariables = new ObservableCollection<Variable>();
-        public ObservableCollection<Variable> SelectedVariables
-        {
-            get { return _selectedVariables; }
-        }
-
-        public ObservableCollection<DistanceMeasure> DistanceMeasures { get; private set; }
+        var dtw = new Dtw(
+            seriesVariablesArray,
+            SelectedDistanceMeasure.Value,
+            UseBoundaryConstraintStart,
+            UseBoundaryConstraintEnd,
+            UseSlopeConstraint ? SlopeConstraintDiagonal : (int?)null,
+            UseSlopeConstraint ? SlopeConstraintAside : (int?)null, 
+            UseSakoeChibaMaxShift ? SakoeChibaMaxShift : (int?)null);
         
-        private DistanceMeasure? _selectedDistanceMeasure;
-        public DistanceMeasure? SelectedDistanceMeasure
+        if (MeasurePerformance)
         {
-            get { return _selectedDistanceMeasure; }
-            set
+            var swDtwPerformance = new Stopwatch();
+            swDtwPerformance.Start();
+
+            for (int i = 0; i < 250; i++)
             {
-                _selectedDistanceMeasure = value;
-                NotifyPropertyChanged(() => SelectedDistanceMeasure);
-                Recalculate();
+                var tempDtw = new Dtw(
+                    seriesVariablesArray,
+                    SelectedDistanceMeasure.Value,
+                    UseBoundaryConstraintStart,
+                    UseBoundaryConstraintEnd,
+                    UseSlopeConstraint ? SlopeConstraintDiagonal : (int?)null,
+                    UseSlopeConstraint ? SlopeConstraintAside : (int?)null,
+                    UseSakoeChibaMaxShift ? SakoeChibaMaxShift : (int?)null);
+                var tempDtwPath = tempDtw.GetCost();
             }
+            swDtwPerformance.Stop();
+            OperationDuration = swDtwPerformance.Elapsed;
         }
 
-        private bool _useBoundaryConstraintStart = true;
-        public bool UseBoundaryConstraintStart
+        Dtw = dtw;
+
+        //Dtw = new Dtw(
+        //    new[] { 4.0, 4.0, 4.5, 4.5, 5.0, 5.0, 5.0, 4.5, 4.5, 4.0, 4.0, 3.5 },
+        //    new[] { 1.0, 1.5, 2.0, 2.5, 3.5, 4.0, 3.0, 2.5, 2.0, 2.0, 2.0, 1.5 },
+        //    SelectedDistanceMeasure.Value,
+        //    UseBoundaryConstraintStart,
+        //    UseBoundaryConstraintEnd,
+        //    UseSlopeConstraint ? SlopeConstraintDiagonal : (int?)null,
+        //    UseSlopeConstraint ? SlopeConstraintAside : (int?)null,
+        //    UseSakoeChibaMaxShift ? SakoeChibaMaxShift : (int?)null);
+    }
+
+    public MultivariateDataSeriesRepository DataSeries { get; set; }
+
+    private void InitializeData()
+    {
+        DataSeries = DataSeriesFactory.CreateMultivariateConsumptionByPurposeEurostat();
+
+        Entities = new ObservableCollection<string>(DataSeries.GetEntities());
+
+        var nonePreprocessor = new NonePreprocessor();
+        Variables = new ObservableCollection<Variable>(DataSeries.GetVariables().Select(x => new Variable() { Name = x, Preprocessor = nonePreprocessor, Weight = 1 }));
+        Preprocessors = new ObservableCollection<IPreprocessor>()
+                            {
+                                nonePreprocessor,
+                                new CentralizationPreprocessor(),
+                                new NormalizationPreprocessor(),
+                                new StandardizationPreprocessor()
+                            };
+
+        DistanceMeasures = new ObservableCollection<DistanceMeasure>()
+                               {
+                                   DistanceMeasure.Manhattan, 
+                                   DistanceMeasure.Euclidean, 
+                                   DistanceMeasure.SquaredEuclidean,
+                                   DistanceMeasure.Maximum
+                               };
+        
+        SelectedDistanceMeasure = DistanceMeasure.Euclidean;
+    }
+
+    public ObservableCollection<string> Entities { get; private set; }
+    private readonly ObservableCollection<string> _selectedEntities = new ObservableCollection<string>();
+    public ObservableCollection<string> SelectedEntities
+    {
+        get { return _selectedEntities; }
+    }
+
+    public ObservableCollection<Variable> Variables { get; private set; }
+    public ObservableCollection<IPreprocessor> Preprocessors { get; private set; }
+
+    private readonly ObservableCollection<Variable> _selectedVariables = new ObservableCollection<Variable>();
+    public ObservableCollection<Variable> SelectedVariables
+    {
+        get { return _selectedVariables; }
+    }
+
+    public ObservableCollection<DistanceMeasure> DistanceMeasures { get; private set; }
+    
+    private DistanceMeasure? _selectedDistanceMeasure;
+    public DistanceMeasure? SelectedDistanceMeasure
+    {
+        get { return _selectedDistanceMeasure; }
+        set
         {
-            get
-            {
-                return _useBoundaryConstraintStart;
-            }
-            set
-            {
-                _useBoundaryConstraintStart = value;
-                NotifyPropertyChanged(() => UseBoundaryConstraintStart);
-                Recalculate();
-            }
+            _selectedDistanceMeasure = value;
+            NotifyPropertyChanged(() => SelectedDistanceMeasure);
+            Recalculate();
         }
+    }
 
-        private bool _useBoundaryConstraintEnd = true;
-        public bool UseBoundaryConstraintEnd
+    private bool _useBoundaryConstraintStart = true;
+    public bool UseBoundaryConstraintStart
+    {
+        get
         {
-            get
-            {
-                return _useBoundaryConstraintEnd;
-            }
-            set
-            {
-                _useBoundaryConstraintEnd = value;
-                NotifyPropertyChanged(() => UseBoundaryConstraintEnd);
-                Recalculate();
-            }
+            return _useBoundaryConstraintStart;
         }
-
-        private bool _useSakoeChibaMaxShift = true;
-        public bool UseSakoeChibaMaxShift
+        set
         {
-            get
-            {
-                return _useSakoeChibaMaxShift;
-            }
-            set
-            {
-                _useSakoeChibaMaxShift = value;
-                NotifyPropertyChanged(() => UseSakoeChibaMaxShift);
-                Recalculate();
-            }
+            _useBoundaryConstraintStart = value;
+            NotifyPropertyChanged(() => UseBoundaryConstraintStart);
+            Recalculate();
         }
+    }
 
-        private int _sakoeChibaMaxShift = 50;
-        public int SakoeChibaMaxShift
+    private bool _useBoundaryConstraintEnd = true;
+    public bool UseBoundaryConstraintEnd
+    {
+        get
         {
-            get
-            {
-                return _sakoeChibaMaxShift;
-            }
-            set
-            {
-                _sakoeChibaMaxShift = value;
-                NotifyPropertyChanged(() => SakoeChibaMaxShift);
-            }
+            return _useBoundaryConstraintEnd;
         }
-
-        private bool _useSlopeConstraint = true;
-        public bool UseSlopeConstraint
+        set
         {
-            get
-            {
-                return _useSlopeConstraint;
-            }
-            set
-            {
-                _useSlopeConstraint = value;
-                NotifyPropertyChanged(() => UseSlopeConstraint);
-                Recalculate();
-            }
+            _useBoundaryConstraintEnd = value;
+            NotifyPropertyChanged(() => UseBoundaryConstraintEnd);
+            Recalculate();
         }
+    }
 
-        private int _slopeConstraintDiagonal = 1;
-        public int SlopeConstraintDiagonal
+    private bool _useSakoeChibaMaxShift = true;
+    public bool UseSakoeChibaMaxShift
+    {
+        get
         {
-            get
-            {
-                return _slopeConstraintDiagonal;
-            }
-            set
-            {
-                _slopeConstraintDiagonal = value;
-                NotifyPropertyChanged(() => SlopeConstraintDiagonal);
-            }
+            return _useSakoeChibaMaxShift;
         }
-
-        private int _slopeConstraintAside = 1;
-        public int SlopeConstraintAside
+        set
         {
-            get
-            {
-                return _slopeConstraintAside;
-            }
-            set
-            {
-                _slopeConstraintAside = value;
-                NotifyPropertyChanged(() => SlopeConstraintAside);
-            }
+            _useSakoeChibaMaxShift = value;
+            NotifyPropertyChanged(() => UseSakoeChibaMaxShift);
+            Recalculate();
         }
+    }
 
-        private bool _measurePerformance;
-        public bool MeasurePerformance
+    private int _sakoeChibaMaxShift = 50;
+    public int SakoeChibaMaxShift
+    {
+        get
         {
-            get
-            {
-                return _measurePerformance;
-            }
-            set
-            {
-                _measurePerformance = value;
-                NotifyPropertyChanged(() => MeasurePerformance);
-            }
+            return _sakoeChibaMaxShift;
         }
-
-        private TimeSpan _operationDuration;
-        public TimeSpan OperationDuration
+        set
         {
-            get
-            {
-                return _operationDuration;
-            }
-            private set
-            {
-                _operationDuration = value;
-                NotifyPropertyChanged(() => OperationDuration);
-            }
+            _sakoeChibaMaxShift = value;
+            NotifyPropertyChanged(() => SakoeChibaMaxShift);
         }
+    }
 
-        private IDtw _dtw;
-        public IDtw Dtw
+    private bool _useSlopeConstraint = true;
+    public bool UseSlopeConstraint
+    {
+        get
         {
-            get
-            {
-                return _dtw;
-            }
-            private set
-            {
-                _dtw = value;
-                NotifyPropertyChanged(() => Dtw);
-            }
+            return _useSlopeConstraint;
         }
-
-        private bool _drawDistance;
-        public bool DrawDistance
+        set
         {
-            get
-            {
-                return _drawDistance;
-            }
-            set
-            {
-                _drawDistance = value;
-                if (value && DrawCost)
-                    DrawCost = false;
-
-                NotifyPropertyChanged(() => DrawDistance);
-            }
+            _useSlopeConstraint = value;
+            NotifyPropertyChanged(() => UseSlopeConstraint);
+            Recalculate();
         }
+    }
 
-        private bool _drawCost;
-        public bool DrawCost
+    private int _slopeConstraintDiagonal = 1;
+    public int SlopeConstraintDiagonal
+    {
+        get
         {
-            get
-            {
-                return _drawCost;
-            }
-            set
-            {
-                _drawCost = value;
-                if (value && DrawDistance)
-                    DrawDistance = false;
-
-                NotifyPropertyChanged(() => DrawCost);
-            }
+            return _slopeConstraintDiagonal;
         }
-
-
-        public bool CanRecalculate
+        set
         {
-            get { return _selectedEntities.Count == 2 && _selectedVariables.Count >= 1 && _selectedDistanceMeasure != null; }
+            _slopeConstraintDiagonal = value;
+            NotifyPropertyChanged(() => SlopeConstraintDiagonal);
         }
+    }
 
-        private ICommand _recalculateCommand;
-        public ICommand RecalculateCommand
+    private int _slopeConstraintAside = 1;
+    public int SlopeConstraintAside
+    {
+        get
         {
-            get
+            return _slopeConstraintAside;
+        }
+        set
+        {
+            _slopeConstraintAside = value;
+            NotifyPropertyChanged(() => SlopeConstraintAside);
+        }
+    }
+
+    private bool _measurePerformance;
+    public bool MeasurePerformance
+    {
+        get
+        {
+            return _measurePerformance;
+        }
+        set
+        {
+            _measurePerformance = value;
+            NotifyPropertyChanged(() => MeasurePerformance);
+        }
+    }
+
+    private TimeSpan _operationDuration;
+    public TimeSpan OperationDuration
+    {
+        get
+        {
+            return _operationDuration;
+        }
+        private set
+        {
+            _operationDuration = value;
+            NotifyPropertyChanged(() => OperationDuration);
+        }
+    }
+
+    private IDtw _dtw;
+    public IDtw Dtw
+    {
+        get
+        {
+            return _dtw;
+        }
+        private set
+        {
+            _dtw = value;
+            NotifyPropertyChanged(() => Dtw);
+        }
+    }
+
+    private bool _drawDistance;
+    public bool DrawDistance
+    {
+        get
+        {
+            return _drawDistance;
+        }
+        set
+        {
+            _drawDistance = value;
+            if (value && DrawCost)
+                DrawCost = false;
+
+            NotifyPropertyChanged(() => DrawDistance);
+        }
+    }
+
+    private bool _drawCost;
+    public bool DrawCost
+    {
+        get
+        {
+            return _drawCost;
+        }
+        set
+        {
+            _drawCost = value;
+            if (value && DrawDistance)
+                DrawDistance = false;
+
+            NotifyPropertyChanged(() => DrawCost);
+        }
+    }
+
+
+    public bool CanRecalculate
+    {
+        get { return _selectedEntities.Count == 2 && _selectedVariables.Count >= 1 && _selectedDistanceMeasure != null; }
+    }
+
+    private ICommand _recalculateCommand;
+    public ICommand RecalculateCommand
+    {
+        get
+        {
+            if (_recalculateCommand == null)
             {
-                if (_recalculateCommand == null)
-                {
-                    _recalculateCommand = new RelayCommand(
-                        param => Recalculate(),
-                        param => CanRecalculate
-                    );
-                }
-                return _recalculateCommand;
+                _recalculateCommand = new RelayCommand(
+                    param => Recalculate(),
+                    param => CanRecalculate
+                );
             }
+            return _recalculateCommand;
         }
     }
 }
- 
